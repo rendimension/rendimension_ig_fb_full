@@ -1,6 +1,7 @@
-# RENDIMENSION Brand Engine v1.0
+# RENDIMENSION Brand Engine v2.0
 # Carousel compositor for Rendimension social media automation
 # Blue gradient style with architectural visualization focus
+# UPDATED: Larger fonts, white description, 4:5 vertical format
 
 from flask import Flask, request, send_file, jsonify, send_from_directory
 from PIL import Image, ImageDraw, ImageFont
@@ -52,20 +53,20 @@ DEFAULT_WEBSITE = os.environ.get('WEBSITE_URL', 'www.rendimension.com')
 LOGO_URL = os.environ.get('LOGO_URL', 'https://res.cloudinary.com/dotimxrnh/image/upload/v1772757400/LOGO_FOR_STREAMING_v0aph8.png')
 
 # =========================
-# Layout Configuration - SQUARE 1:1 for Instagram/Facebook
+# Layout Configuration - VERTICAL 4:5 for Instagram/Facebook
 # =========================
 CANVAS_WIDTH = 1080
-CANVAS_HEIGHT = 1080  # Square format
+CANVAS_HEIGHT = 1350  # 4:5 vertical format (more coverage)
 MARGIN_LEFT = 50
 MARGIN_RIGHT = 50
 MARGIN_TOP = 30
-MARGIN_BOTTOM = 40
+MARGIN_BOTTOM = 50
 
 # =========================
-# Gradient Heights
+# Gradient Heights (adjusted for taller canvas)
 # =========================
-GRADIENT_TOP_HEIGHT = 100
-GRADIENT_BOTTOM_HEIGHT = 380
+GRADIENT_TOP_HEIGHT = 120
+GRADIENT_BOTTOM_HEIGHT = 450  # Larger for more text space
 
 # =========================
 # Load Fonts AT STARTUP
@@ -89,12 +90,12 @@ def load_font(size, name, bold=True):
                 continue
         return ImageFont.load_default()
 
-# Font sizes for Rendimension
-headline_font = load_font(28, "headline_font")
-big_text_font = load_font(48, "big_text_font")
-description_font = load_font(24, "description_font", bold=False)
-website_font = load_font(32, "website_font")
-tagline_font = load_font(28, "tagline_font", bold=False)
+# Font sizes for Rendimension - UPDATED SIZES
+headline_font = load_font(34, "headline_font")      # Was 28, now 34
+big_text_font = load_font(56, "big_text_font")      # Was 48, now 56
+description_font = load_font(30, "description_font") # Was 24, now 30 - BOLD now
+website_font = load_font(36, "website_font")
+tagline_font = load_font(32, "tagline_font", bold=False)
 
 # Cached logo
 cached_logo = None
@@ -134,8 +135,8 @@ def load_logo():
         resp.raise_for_status()
         logo = Image.open(io.BytesIO(resp.content))
         logo = logo.convert("RGBA")
-        # Resize to fit header - max height 45px
-        max_height = 45
+        # Resize to fit header - max height 50px (slightly larger)
+        max_height = 50
         ratio = max_height / logo.height
         new_width = int(logo.width * ratio)
         logo = logo.resize((new_width, max_height), Image.LANCZOS)
@@ -154,7 +155,7 @@ def create_top_gradient(width, height):
     for y in range(height):
         # Fade from semi-transparent blue to transparent
         progress = y / height
-        alpha = int(180 * (1 - progress))
+        alpha = int(200 * (1 - progress))  # Slightly stronger
         r = RENDI_BLUE_DARK[0]
         g = RENDI_BLUE_DARK[1]
         b = RENDI_BLUE_DARK[2]
@@ -208,17 +209,30 @@ def wrap_text(text, font, max_width, draw):
     return lines
 
 
-def draw_text_with_shadow(draw, position, text, font, fill, shadow_color=(0, 0, 0, 100), offset=2):
-    """Draw text with subtle shadow for better readability"""
+def draw_text_with_shadow(draw, position, text, font, fill, shadow_offset=2, shadow_alpha=100):
+    """Draw text with shadow for better readability"""
     x, y = position
+    shadow_color = (0, 0, 0, shadow_alpha)
     # Shadow
-    draw.text((x + offset, y + offset), text, font=font, fill=shadow_color)
+    draw.text((x + shadow_offset, y + shadow_offset), text, font=font, fill=shadow_color)
+    # Main text
+    draw.text((x, y), text, font=font, fill=fill)
+
+
+def draw_text_with_strong_shadow(draw, position, text, font, fill):
+    """Draw text with STRONG shadow for description - multiple layers"""
+    x, y = position
+    # Multiple shadow layers for stronger effect
+    for offset in [4, 3, 2]:
+        shadow_alpha = 80 + (4 - offset) * 40  # 80, 120, 160
+        shadow_color = (0, 0, 0, shadow_alpha)
+        draw.text((x + offset, y + offset), text, font=font, fill=shadow_color)
     # Main text
     draw.text((x, y), text, font=font, fill=fill)
 
 
 def render_slide(image_source, headline='', big_text='', description='',
-                 slide_number=1, total_slides=8, show_arrow=True, show_website=True,
+                 slide_number=1, total_slides=9, show_arrow=True, show_website=True,
                  is_cta=False):
     """Render a single Rendimension branded slide"""
     
@@ -261,10 +275,10 @@ def render_slide(image_source, headline='', big_text='', description='',
     # Create draw object
     draw = ImageDraw.Draw(canvas)
     
-    # Calculate text area
-    text_area_top = CANVAS_HEIGHT - GRADIENT_BOTTOM_HEIGHT + 40
+    # Calculate text area (adjusted for taller canvas)
+    text_area_top = CANVAS_HEIGHT - GRADIENT_BOTTOM_HEIGHT + 60
     
-    # Draw headline (small, light blue)
+    # Draw headline (small, light blue, centered) - 34pt
     current_y = text_area_top
     if headline:
         headline_upper = headline.upper()
@@ -273,39 +287,40 @@ def render_slide(image_source, headline='', big_text='', description='',
             bbox = draw.textbbox((0, 0), line, font=headline_font)
             line_width = bbox[2] - bbox[0]
             x = (CANVAS_WIDTH - line_width) // 2
-            draw_text_with_shadow(draw, (x, current_y), line, headline_font, LIGHT_BLUE)
-            current_y += headline_font.size + 10
+            draw_text_with_shadow(draw, (x, current_y), line, headline_font, LIGHT_BLUE, shadow_offset=2, shadow_alpha=120)
+            current_y += headline_font.size + 15
     
-    # Draw big text (large, white, centered)
-    current_y += 10
+    # Draw big text (large, white, centered) - 56pt
+    current_y += 5
     if big_text:
         lines = wrap_text(big_text, big_text_font, CANVAS_WIDTH - 80, draw)
         for line in lines[:2]:  # Max 2 lines
             bbox = draw.textbbox((0, 0), line, font=big_text_font)
             line_width = bbox[2] - bbox[0]
             x = (CANVAS_WIDTH - line_width) // 2
-            draw_text_with_shadow(draw, (x, current_y), line, big_text_font, WHITE)
-            current_y += big_text_font.size + 12
+            draw_text_with_shadow(draw, (x, current_y), line, big_text_font, WHITE, shadow_offset=3, shadow_alpha=150)
+            current_y += big_text_font.size + 15
     
-    # Draw description (smaller, light blue, centered)
-    current_y += 15
+    # Draw description (WHITE with STRONG shadow, centered) - 30pt
+    current_y += 20
     if description:
-        lines = wrap_text(description, description_font, CANVAS_WIDTH - 120, draw)
+        lines = wrap_text(description, description_font, CANVAS_WIDTH - 100, draw)
         for line in lines[:3]:  # Max 3 lines
             bbox = draw.textbbox((0, 0), line, font=description_font)
             line_width = bbox[2] - bbox[0]
             x = (CANVAS_WIDTH - line_width) // 2
-            draw_text_with_shadow(draw, (x, current_y), line, description_font, LIGHT_BLUE)
-            current_y += description_font.size + 8
+            # Use strong shadow for description
+            draw_text_with_strong_shadow(draw, (x, current_y), line, description_font, WHITE)
+            current_y += description_font.size + 10
     
     # Draw arrow (if not last slide)
     if show_arrow and slide_number < total_slides:
         arrow = "→"
-        arrow_font = load_font(36, "arrow")
+        arrow_font = load_font(40, "arrow")
         bbox = draw.textbbox((0, 0), arrow, font=arrow_font)
         arrow_width = bbox[2] - bbox[0]
         draw.text(
-            (CANVAS_WIDTH - arrow_width - 30, CANVAS_HEIGHT - 50),
+            (CANVAS_WIDTH - arrow_width - 35, CANVAS_HEIGHT - 60),
             arrow,
             font=arrow_font,
             fill=WHITE
@@ -331,14 +346,14 @@ def render_cta_slide(canvas):
         logo_large = logo_large.convert("RGBA")
         
         # Make logo larger for CTA
-        max_height = 100
+        max_height = 120
         ratio = max_height / logo_large.height
         new_width = int(logo_large.width * ratio)
         logo_large = logo_large.resize((new_width, max_height), Image.LANCZOS)
         
-        # Center the logo
+        # Center the logo (adjusted for taller canvas)
         logo_x = (CANVAS_WIDTH - new_width) // 2
-        logo_y = 380
+        logo_y = 500
         canvas.paste(logo_large, (logo_x, logo_y), logo_large)
     except Exception as e:
         print(f"⚠️ CTA logo error: {e}")
@@ -350,24 +365,24 @@ def render_cta_slide(canvas):
     tagline1 = "Architectural Visualization"
     bbox1 = draw.textbbox((0, 0), tagline1, font=tagline_font)
     tagline1_x = (CANVAS_WIDTH - (bbox1[2] - bbox1[0])) // 2
-    draw.text((tagline1_x, 530), tagline1, font=tagline_font, fill=LIGHT_BLUE)
+    draw.text((tagline1_x, 670), tagline1, font=tagline_font, fill=LIGHT_BLUE)
     
     # Tagline line 2
     tagline2 = "for Real Estate Development"
     bbox2 = draw.textbbox((0, 0), tagline2, font=tagline_font)
     tagline2_x = (CANVAS_WIDTH - (bbox2[2] - bbox2[0])) // 2
-    draw.text((tagline2_x, 570), tagline2, font=tagline_font, fill=LIGHT_BLUE)
+    draw.text((tagline2_x, 720), tagline2, font=tagline_font, fill=LIGHT_BLUE)
     
     # Divider line
     line_width = 200
     line_x = (CANVAS_WIDTH - line_width) // 2
-    draw.line([(line_x, 630), (line_x + line_width, 630)], fill=WHITE, width=2)
+    draw.line([(line_x, 790), (line_x + line_width, 790)], fill=WHITE, width=2)
     
     # Website
     website = DEFAULT_WEBSITE
     bbox = draw.textbbox((0, 0), website, font=website_font)
     website_x = (CANVAS_WIDTH - (bbox[2] - bbox[0])) // 2
-    draw.text((website_x, 660), website, font=website_font, fill=WHITE)
+    draw.text((website_x, 820), website, font=website_font, fill=WHITE)
     
     return canvas
 
@@ -380,17 +395,23 @@ def render_cta_slide(canvas):
 def home():
     return jsonify({
         "service": "Rendimension Brand Engine",
-        "version": "1.0",
+        "version": "2.0",
         "status": "running",
         "brand": DEFAULT_BRAND_NAME,
         "features": [
             "blue_gradient_overlay",
-            "8_slide_carousels",
+            "9_slide_carousels",
             "text_wrapping",
             "cta_slide",
-            "logo_support"
+            "logo_support",
+            "4:5_vertical_format"
         ],
         "canvas_size": f"{CANVAS_WIDTH}x{CANVAS_HEIGHT}",
+        "font_sizes": {
+            "headline": 34,
+            "big_text": 56,
+            "description": 30
+        },
         "fonts": {
             "Montserrat-Bold": os.path.isfile(FONT_BOLD_PATH),
         },
@@ -402,8 +423,9 @@ def home():
 def health():
     return jsonify({
         'status': 'ok',
-        'version': '1.0',
+        'version': '2.0',
         'brand': 'Rendimension',
+        'canvas': '1080x1350',
         'images_in_cache': len(generated_images)
     })
 
@@ -460,7 +482,7 @@ def render_slide_endpoint():
         
         # Slide position
         slide_number = data.get('slide_number', 1)
-        total_slides = data.get('total_slides', 8)
+        total_slides = data.get('total_slides', 9)
         show_arrow = data.get('show_arrow', True)
         show_website = data.get('show_website', True)
         is_cta = data.get('is_cta', False)
@@ -517,8 +539,10 @@ def render_slide_endpoint():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
-    print(f"🚀 Rendimension Brand Engine v1.0 starting on port {port}")
+    print(f"🚀 Rendimension Brand Engine v2.0 starting on port {port}")
     print(f"📍 Brand: {DEFAULT_BRAND_NAME}")
+    print(f"📍 Canvas: {CANVAS_WIDTH}x{CANVAS_HEIGHT} (4:5 vertical)")
+    print(f"📍 Fonts: Headline 34pt | Big Text 56pt | Description 30pt")
     print(f"📍 Logo: {LOGO_URL}")
     print(f"📍 Website: {DEFAULT_WEBSITE}")
     app.run(host='0.0.0.0', port=port, debug=False)
